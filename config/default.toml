@@ -1,0 +1,4 @@
+[application]
+name = "LAD"
+version = "0.1.0-alpha.3"
+environment = "development"
