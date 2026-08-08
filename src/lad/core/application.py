@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from lad.di.container import ServiceContainer
 from lad.events.application import (
     ApplicationStarted,
     ApplicationStarting,
@@ -19,11 +20,21 @@ class Application:
         self,
         event_bus: EventBus | None = None,
         module_registry: ModuleRegistry | None = None,
+        service_container: ServiceContainer | None = None,
     ) -> None:
         self._initialized = False
         self._running = False
+
+        self._service_container = service_container or ServiceContainer()
+
         self._event_bus = event_bus or EventBus()
         self._module_registry = module_registry or ModuleRegistry()
+
+        self._service_container.register(EventBus, self._event_bus)
+        self._service_container.register(
+            ModuleRegistry,
+            self._module_registry,
+        )
 
     @property
     def initialized(self) -> bool:
@@ -48,6 +59,12 @@ class Application:
         """Возвращает реестр модулей приложения."""
 
         return self._module_registry
+
+    @property
+    def service_container(self) -> ServiceContainer:
+        """Возвращает контейнер сервисов приложения."""
+
+        return self._service_container
 
     def initialize(self) -> None:
         """Инициализировать приложение."""
