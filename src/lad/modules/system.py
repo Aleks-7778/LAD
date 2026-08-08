@@ -1,25 +1,46 @@
-"""System module for LAD."""
-
 from __future__ import annotations
 
-from lad.modules.core import Module
+from typing import Any
 
 
-class SystemModule(Module):
-    """Base system module for LAD."""
+class SystemModule:
+    """
+    Системный модуль LAD.
+
+    Отвечает за базовый жизненный цикл системного модуля
+    и является первым реальным модулем, подключаемым к ModuleRegistry.
+    """
+
+    name = "system"
+
+    def __init__(
+        self,
+        event_bus: Any,
+        logger: Any,
+    ) -> None:
+        self._event_bus = event_bus
+        self._logger = logger
+        self._started = False
 
     @property
-    def name(self) -> str:
-        """Return module name."""
-
-        return "system"
+    def started(self) -> bool:
+        """Возвращает состояние модуля."""
+        return self._started
 
     def start(self) -> None:
-        """Start system module."""
+        """Запустить системный модуль."""
+        if self._started:
+            return
 
-        print("System module started")
+        self._started = True
+
+        self._logger.info("System module started")
 
     def stop(self) -> None:
-        """Stop system module."""
+        """Остановить системный модуль."""
+        if not self._started:
+            return
 
-        print("System module stopped")
+        self._started = False
+
+        self._logger.info("System module stopped")
