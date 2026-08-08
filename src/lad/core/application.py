@@ -1,44 +1,49 @@
+"""Application lifecycle for LAD."""
+
 from __future__ import annotations
 
 from typing import Any
+
+from lad.events.application import (
+    ApplicationStarted,
+    ApplicationStarting,
+    ApplicationStopped,
+    ApplicationStopping,
+)
+from lad.events.bus import EventBus
 
 
 class Application:
     """Главный жизненный цикл приложения LAD."""
 
-    def __init__(
-        self,
-        logger: Any | None = None,
-        module_registry: Any | None = None,
-    ) -> None:
-        self._logger = logger
-        self._module_registry = module_registry
-
+    def __init__(self, event_bus: EventBus | None = None) -> None:
         self._initialized = False
         self._running = False
+        self._event_bus = event_bus or EventBus()
 
     @property
     def initialized(self) -> bool:
-        """Возвращает состояние инициализации приложения."""
+        """Возвращает True, если приложение инициализировано."""
 
         return self._initialized
 
     @property
     def running(self) -> bool:
-        """Возвращает состояние запущенного приложения."""
+        """Возвращает True, если приложение запущено."""
 
         return self._running
+
+    @property
+    def event_bus(self) -> EventBus:
+        """Возвращает шину событий приложения."""
+
+        return self._event_bus
 
     def initialize(self) -> None:
         """Инициализировать приложение."""
 
         if self._initialized:
             return
-
-        self._log(
-            "info",
-            "Initializing application",
-        )
 
         self._initialized = True
 
@@ -51,20 +56,11 @@ class Application:
         if self._running:
             return
 
-        self._log(
-            "info",
-            "Starting application",
-        )
-
-        if self._module_registry is not None:
-            self._module_registry.start_all()
+        self._event_bus.publish(ApplicationStarting())
 
         self._running = True
 
-        self._log(
-            "info",
-            "Application started successfully",
-        )
+        self._event_bus.publish(ApplicationStarted())
 
     def stop(self) -> None:
         """Остановить приложение."""
@@ -72,20 +68,11 @@ class Application:
         if not self._running:
             return
 
-        self._log(
-            "info",
-            "Stopping application",
-        )
-
-        if self._module_registry is not None:
-            self._module_registry.stop_all()
+        self._event_bus.publish(ApplicationStopping())
 
         self._running = False
 
-        self._log(
-            "info",
-            "Application stopped",
-        )
+        self._event_bus.publish(ApplicationStopped())
 
     def shutdown(self) -> None:
         """Полностью завершить работу приложения."""
@@ -93,31 +80,4 @@ class Application:
         if self._running:
             self.stop()
 
-        if not self._initialized:
-            return
-
-        self._log(
-            "info",
-            "Shutting down application",
-        )
-
         self._initialized = False
-
-    def _log(
-        self,
-        level: str,
-        message: str,
-    ) -> None:
-        """Безопасно отправить сообщение в logger."""
-
-        if self._logger is None:
-            return
-
-        method = getattr(
-            self._logger,
-            level,
-            None,
-        )
-
-        if callable(method):
-            method(message)
