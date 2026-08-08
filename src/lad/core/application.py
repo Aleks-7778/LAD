@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from lad.events.application import (
     ApplicationStarted,
     ApplicationStarting,
@@ -11,15 +9,21 @@ from lad.events.application import (
     ApplicationStopping,
 )
 from lad.events.bus import EventBus
+from lad.modules.registry import ModuleRegistry
 
 
 class Application:
     """Главный жизненный цикл приложения LAD."""
 
-    def __init__(self, event_bus: EventBus | None = None) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus | None = None,
+        module_registry: ModuleRegistry | None = None,
+    ) -> None:
         self._initialized = False
         self._running = False
         self._event_bus = event_bus or EventBus()
+        self._module_registry = module_registry or ModuleRegistry()
 
     @property
     def initialized(self) -> bool:
@@ -38,6 +42,12 @@ class Application:
         """Возвращает шину событий приложения."""
 
         return self._event_bus
+
+    @property
+    def module_registry(self) -> ModuleRegistry:
+        """Возвращает реестр модулей приложения."""
+
+        return self._module_registry
 
     def initialize(self) -> None:
         """Инициализировать приложение."""
@@ -58,6 +68,7 @@ class Application:
 
         self._event_bus.publish(ApplicationStarting())
 
+        self._module_registry.start_all()
         self._running = True
 
         self._event_bus.publish(ApplicationStarted())
@@ -70,6 +81,7 @@ class Application:
 
         self._event_bus.publish(ApplicationStopping())
 
+        self._module_registry.stop_all()
         self._running = False
 
         self._event_bus.publish(ApplicationStopped())
