@@ -1,13 +1,11 @@
+"""Configuration service for LAD."""
+
 from lad.config.settings import Settings
 
 
 class ConfigurationService:
-    """Configuration Service."""
+    """Application configuration service."""
 
     def load(self) -> Settings:
-        """
-        Загрузка конфигурации.
-        Пока используются значения по умолчанию.
-        """
-
+        """Load application configuration."""
         return Settings()

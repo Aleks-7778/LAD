@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from lad.config.service import ConfigurationService
+from lad.config.settings import Settings
 from lad.di.container import ServiceContainer
 from lad.events.application import (
     ApplicationStarted,
@@ -21,6 +23,7 @@ class Application:
         event_bus: EventBus | None = None,
         module_registry: ModuleRegistry | None = None,
         service_container: ServiceContainer | None = None,
+        configuration_service: ConfigurationService | None = None,
     ) -> None:
         self._initialized = False
         self._running = False
@@ -29,11 +32,19 @@ class Application:
 
         self._event_bus = event_bus or EventBus()
         self._module_registry = module_registry or ModuleRegistry()
+        self._configuration_service = (
+            configuration_service or ConfigurationService()
+        )
+        self._settings: Settings | None = None
 
         self._service_container.register(EventBus, self._event_bus)
         self._service_container.register(
             ModuleRegistry,
             self._module_registry,
+        )
+        self._service_container.register(
+            ConfigurationService,
+            self._configuration_service,
         )
 
     @property
@@ -66,11 +77,26 @@ class Application:
 
         return self._service_container
 
+    @property
+    def configuration_service(self) -> ConfigurationService:
+        """Возвращает сервис конфигурации приложения."""
+
+        return self._configuration_service
+
+    @property
+    def settings(self) -> Settings | None:
+        """Возвращает загруженные настройки приложения."""
+
+        return self._settings
+
     def initialize(self) -> None:
         """Инициализировать приложение."""
 
         if self._initialized:
             return
+
+        self._settings = self._configuration_service.load()
+        self._service_container.register(Settings, self._settings)
 
         self._initialized = True
 
@@ -110,3 +136,4 @@ class Application:
             self.stop()
 
         self._initialized = False
+        self._settings = None
