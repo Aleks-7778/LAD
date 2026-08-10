@@ -3,7 +3,7 @@
 from lad.config.service import ConfigurationService
 from lad.logging.service import LoggingService
 from lad.core.application import Application
-from lad.di.container import Container
+from lad.di.container import ServiceContainer
 from lad.events.bus import EventBus
 from lad.modules.registry import ModuleRegistry
 from lad.modules.system import SystemModule
@@ -12,7 +12,7 @@ from lad.modules.system import SystemModule
 def main() -> None:
     """Start LAD application."""
 
-    container = Container()
+    container = ServiceContainer()
 
     # Register core services.
     container.register(ConfigurationService)
