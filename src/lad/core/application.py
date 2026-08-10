@@ -12,6 +12,7 @@ from lad.events.application import (
     ApplicationStopping,
 )
 from lad.events.bus import EventBus
+from lad.logging.service import LoggingService
 from lad.modules.registry import ModuleRegistry
 
 
@@ -24,6 +25,7 @@ class Application:
         module_registry: ModuleRegistry | None = None,
         service_container: ServiceContainer | None = None,
         configuration_service: ConfigurationService | None = None,
+        logging_service: LoggingService | None = None,
     ) -> None:
         self._initialized = False
         self._running = False
@@ -35,6 +37,7 @@ class Application:
         self._configuration_service = (
             configuration_service or ConfigurationService()
         )
+        self._logging_service = logging_service or LoggingService()
         self._settings: Settings | None = None
 
         self._service_container.register(EventBus, self._event_bus)
@@ -45,6 +48,10 @@ class Application:
         self._service_container.register(
             ConfigurationService,
             self._configuration_service,
+        )
+        self._service_container.register(
+            LoggingService,
+            self._logging_service,
         )
 
     @property
@@ -84,6 +91,12 @@ class Application:
         return self._configuration_service
 
     @property
+    def logging_service(self) -> LoggingService:
+        """Возвращает сервис логирования приложения."""
+
+        return self._logging_service
+
+    @property
     def settings(self) -> Settings | None:
         """Возвращает загруженные настройки приложения."""
 
@@ -96,6 +109,20 @@ class Application:
             return
 
         self._settings = self._configuration_service.load()
+
+        self._logging_service.shutdown()
+        self._logging_service = LoggingService(self._settings)
+
+        self._service_container.register(
+            LoggingService,
+            self._logging_service,
+        )
+
+        self._logging_service.logger.info(
+            "Initializing application %s",
+            self._settings.version,
+        )
+
         self._service_container.register(Settings, self._settings)
 
         self._initialized = True
@@ -109,6 +136,8 @@ class Application:
         if self._running:
             return
 
+        self._logging_service.logger.info("Starting application")
+
         self._event_bus.publish(ApplicationStarting())
 
         self._module_registry.start_all()
@@ -116,11 +145,15 @@ class Application:
 
         self._event_bus.publish(ApplicationStarted())
 
+        self._logging_service.logger.info("Application started")
+
     def stop(self) -> None:
         """Остановить приложение."""
 
         if not self._running:
             return
+
+        self._logging_service.logger.info("Stopping application")
 
         self._event_bus.publish(ApplicationStopping())
 
@@ -129,11 +162,18 @@ class Application:
 
         self._event_bus.publish(ApplicationStopped())
 
+        self._logging_service.logger.info("Application stopped")
+
     def shutdown(self) -> None:
         """Полностью завершить работу приложения."""
 
         if self._running:
             self.stop()
+
+        if self._initialized:
+            self._logging_service.logger.info("Shutting down application")
+
+        self._logging_service.shutdown()
 
         self._initialized = False
         self._settings = None
