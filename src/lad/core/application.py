@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from lad.config.service import ConfigurationService
 from lad.config.settings import Settings
+from lad.core.context import ApplicationContext
 from lad.di.container import ServiceContainer
 from lad.events.application import (
     ApplicationStarted,
@@ -136,6 +137,35 @@ class Application:
         """Возвращает загруженные настройки приложения."""
 
         return self._settings
+
+
+    @property
+    def context(self) -> ApplicationContext:
+        """Возвращает полностью инициализированный контекст приложения."""
+
+        if not self._initialized:
+            raise RuntimeError(
+                "Application is not initialized"
+            )
+
+        if self._settings is None:
+            raise RuntimeError(
+                "Application settings are not initialized"
+            )
+
+        if self._sqlite_repository is None:
+            raise RuntimeError(
+                "SQLiteRepository is not initialized"
+            )
+
+        return ApplicationContext(
+            settings=self._settings,
+            container=self._service_container,
+            event_bus=self._event_bus,
+            module_registry=self._module_registry,
+            logging_service=self.logging_service,
+            sqlite_repository=self._sqlite_repository,
+        )
 
     def initialize(self) -> None:
         """Инициализировать приложение."""
