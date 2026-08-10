@@ -1,38 +1,18 @@
 """Entry point for LAD."""
 
-from lad.config.service import ConfigurationService
-from lad.logging.service import LoggingService
 from lad.core.application import Application
-from lad.di.container import ServiceContainer
-from lad.events.bus import EventBus
-from lad.modules.registry import ModuleRegistry
 from lad.modules.system import SystemModule
 
 
 def main() -> None:
     """Start LAD application."""
 
-    container = ServiceContainer()
+    app = Application()
 
-    # Register core services.
-    container.register(ConfigurationService)
-    container.register(LoggingService)
+    logger = app.logging_service.get_logger()
+    event_bus = app.event_bus
+    registry = app.module_registry
 
-    # Resolve core services.
-    config = container.resolve(ConfigurationService)
-    logger = container.resolve(LoggingService)
-
-    settings = config.load()
-
-    logger.info("Starting LAD")
-
-    # Create event bus.
-    event_bus = EventBus()
-
-    # Create module registry.
-    registry = ModuleRegistry()
-
-    # Register system module.
     system_module = SystemModule(
         event_bus=event_bus,
         logger=logger,
@@ -40,24 +20,14 @@ def main() -> None:
 
     registry.register(system_module)
 
+    logger.info("Starting LAD")
     logger.info(f"Registered modules: {registry.count}")
 
-    # Start modules.
-    registry.start_all()
-
-    # Create and configure application.
-    app = Application()
-    app.name = settings.app_name
-    app.version = settings.version
-
-    # Start application.
-    app.start()
-
-    logger.info("Application started successfully")
-
-    # Current lifecycle is intentionally lightweight.
-    # Modules remain available for the application lifecycle.
-    registry.stop_all()
+    try:
+        app.start()
+        logger.info("Application started successfully")
+    finally:
+        app.shutdown()
 
 
 if __name__ == "__main__":
