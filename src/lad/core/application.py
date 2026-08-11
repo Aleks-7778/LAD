@@ -17,6 +17,7 @@ from lad.logging.service import LoggingService
 from lad.modules.registry import ModuleRegistry
 from lad.storage.schema import DatabaseSchema
 from lad.storage.sqlite import SQLiteRepository
+from lad.storage.tasks import TaskRepository
 
 
 class Application:
@@ -31,6 +32,7 @@ class Application:
         logging_service: LoggingService | None = None,
         sqlite_repository: SQLiteRepository | None = None,
         database_schema: DatabaseSchema | None = None,
+        task_repository: TaskRepository | None = None,
     ) -> None:
         self._initialized = False
         self._running = False
@@ -48,6 +50,7 @@ class Application:
         self._logging_service = logging_service
         self._sqlite_repository = sqlite_repository
         self._database_schema = database_schema
+        self._task_repository = task_repository
         self._settings: Settings | None = None
 
         # Core services available immediately.
@@ -147,6 +150,17 @@ class Application:
         return self._database_schema
 
     @property
+    def task_repository(self) -> TaskRepository:
+        """Возвращает репозиторий задач приложения."""
+
+        if self._task_repository is None:
+            raise RuntimeError(
+                "TaskRepository is not initialized"
+            )
+
+        return self._task_repository
+
+    @property
     def context(self) -> RuntimeContext:
         """Return the initialized runtime context."""
 
@@ -202,6 +216,11 @@ class Application:
                 self._sqlite_repository,
             )
 
+        if self._task_repository is None:
+            self._task_repository = TaskRepository(
+                self._sqlite_repository,
+            )
+
         self._service_container.register(
             Settings,
             self._settings,
@@ -217,6 +236,10 @@ class Application:
         self._service_container.register(
             DatabaseSchema,
             self._database_schema,
+        )
+        self._service_container.register(
+            TaskRepository,
+            self._task_repository,
         )
 
         self._initialized = True

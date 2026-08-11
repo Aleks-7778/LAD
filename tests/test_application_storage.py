@@ -119,3 +119,67 @@ def test_application_accepts_database_schema_dependency(
     assert app.database_schema is schema
 
     app.shutdown()
+
+
+def test_application_registers_task_repository() -> None:
+    from lad.storage.tasks import TaskRepository
+
+    app = Application()
+
+    app.initialize()
+
+    assert (
+        app.service_container.resolve(TaskRepository)
+        is app.task_repository
+    )
+
+    app.shutdown()
+
+
+def test_application_accepts_task_repository_dependency(
+    tmp_path: Path,
+) -> None:
+    from lad.storage.tasks import TaskRepository
+
+    repository = SQLiteRepository(
+        str(tmp_path / "lad.db"),
+    )
+    task_repository = TaskRepository(repository)
+
+    app = Application(
+        sqlite_repository=repository,
+        task_repository=task_repository,
+    )
+
+    app.initialize()
+
+    assert app.task_repository is task_repository
+    assert (
+        app.service_container.resolve(TaskRepository)
+        is task_repository
+    )
+
+    app.shutdown()
+
+
+def test_application_task_repository_works_after_start(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteRepository(
+        str(tmp_path / "lad.db"),
+    )
+    app = Application(
+        sqlite_repository=repository,
+    )
+
+    app.start()
+
+    task_id = app.task_repository.create("Application task")
+
+    task = app.task_repository.get(task_id)
+
+    assert task is not None
+    assert task["id"] == task_id
+    assert task["title"] == "Application task"
+
+    app.shutdown()
