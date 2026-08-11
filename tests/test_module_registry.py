@@ -102,3 +102,95 @@ def test_module_registry_does_not_stop_module_twice() -> None:
     registry.stop_all()
 
     assert module.stopped == 1
+
+
+def test_stop_all_stops_modules_in_reverse_registration_order() -> None:
+    registry = ModuleRegistry()
+    calls: list[str] = []
+
+    class OrderedModule:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def start(self) -> None:
+            calls.append(f"start:{self.name}")
+
+        def stop(self) -> None:
+            calls.append(f"stop:{self.name}")
+
+    registry.register(OrderedModule("first"))
+    registry.register(OrderedModule("second"))
+    registry.register(OrderedModule("third"))
+
+    registry.start_all()
+    registry.stop_all()
+
+    assert calls == [
+        "start:first",
+        "start:second",
+        "start:third",
+        "stop:third",
+        "stop:second",
+        "stop:first",
+    ]
+
+
+def test_start_all_does_not_restart_already_started_modules() -> None:
+    registry = ModuleRegistry()
+    class Tracking:
+        def __init__(self) -> None:
+            self.start_calls = 0
+            self.stop_calls = 0
+            self.started = False
+
+        def start(self) -> None:
+            self.start_calls += 1
+            self.started = True
+
+        def stop(self) -> None:
+            self.stop_calls += 1
+            self.started = False
+
+    module = Tracking()
+
+    registry.register(module, name="tracking")
+
+    registry.start_all()
+    registry.start_all()
+
+    assert module.start_calls == 1
+    assert module.started is True
+
+    registry.stop_all()
+
+    assert module.stop_calls == 1
+    assert module.started is False
+
+
+def test_stop_all_is_idempotent() -> None:
+    registry = ModuleRegistry()
+    class Tracking:
+        def __init__(self) -> None:
+            self.start_calls = 0
+            self.stop_calls = 0
+            self.started = False
+
+        def start(self) -> None:
+            self.start_calls += 1
+            self.started = True
+
+        def stop(self) -> None:
+            self.stop_calls += 1
+            self.started = False
+
+    module = Tracking()
+
+    registry.register(module, name="tracking")
+
+    registry.start_all()
+    registry.stop_all()
+    registry.stop_all()
+
+    assert module.start_calls == 1
+    assert module.stop_calls == 1
+    assert module.started is False
