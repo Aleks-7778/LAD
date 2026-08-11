@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Iterator, Sequence
 
 
 class SQLiteRepository:
@@ -13,6 +14,7 @@ class SQLiteRepository:
     def __init__(self, database_path: str = "data/lad.db") -> None:
         self._database_path = Path(database_path)
         self._connection: sqlite3.Connection | None = None
+        self._transaction_depth = 0
 
     @property
     def database_path(self) -> Path:
@@ -40,7 +42,6 @@ class SQLiteRepository:
         self._connection = sqlite3.connect(
             self._database_path,
         )
-
         self._connection.row_factory = sqlite3.Row
 
     def execute(
@@ -58,7 +59,9 @@ class SQLiteRepository:
             sql,
             parameters,
         )
-        self._connection.commit()
+
+        if self._transaction_depth == 0:
+            self._connection.commit()
 
         return cursor
 
@@ -77,7 +80,9 @@ class SQLiteRepository:
             sql,
             parameters,
         )
-        self._connection.commit()
+
+        if self._transaction_depth == 0:
+            self._connection.commit()
 
         return cursor
 
@@ -101,6 +106,35 @@ class SQLiteRepository:
         cursor = self.execute(sql, parameters)
         return cursor.fetchall()
 
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Execute operations inside a transaction."""
+
+        self._ensure_connected()
+
+        assert self._connection is not None
+
+        outermost = self._transaction_depth == 0
+        self._transaction_depth += 1
+
+        if outermost:
+            self._connection.execute("BEGIN")
+
+        try:
+            yield
+        except Exception:
+            self._transaction_depth -= 1
+
+            if outermost:
+                self._connection.rollback()
+
+            raise
+        else:
+            self._transaction_depth -= 1
+
+            if outermost:
+                self._connection.commit()
+
     def close(self) -> None:
         """Close the database connection."""
 
@@ -109,6 +143,7 @@ class SQLiteRepository:
 
         self._connection.close()
         self._connection = None
+        self._transaction_depth = 0
 
     def shutdown(self) -> None:
         """Shutdown the repository."""
