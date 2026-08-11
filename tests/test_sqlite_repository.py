@@ -124,3 +124,107 @@ def test_repository_reconnects_after_shutdown(
     assert repository.connected is True
 
     repository.shutdown()
+
+
+def test_repository_exposes_database_path(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "storage" / "lad.db"
+    repository = SQLiteRepository(str(database_path))
+
+    assert repository.database_path == database_path
+
+    repository.shutdown()
+
+
+def test_repository_execute_auto_connects(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "lad.db"
+    repository = SQLiteRepository(str(database_path))
+
+    assert repository.connected is False
+
+    repository.execute(
+        """
+        CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL
+        )
+        """
+    )
+
+    assert repository.connected is True
+    assert database_path.exists()
+
+    repository.shutdown()
+
+
+def test_repository_fetch_auto_connects(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "lad.db"
+    repository = SQLiteRepository(str(database_path))
+
+    repository.execute(
+        """
+        CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL
+        )
+        """
+    )
+
+    repository.execute(
+        "INSERT INTO tasks (title) VALUES (?)",
+        ("Auto connect",),
+    )
+
+    repository.shutdown()
+
+    assert repository.connected is False
+
+    row = repository.fetch_one(
+        "SELECT title FROM tasks WHERE title = ?",
+        ("Auto connect",),
+    )
+
+    assert row is not None
+    assert row["title"] == "Auto connect"
+    assert repository.connected is True
+
+    repository.shutdown()
+
+
+def test_repository_can_execute_after_shutdown(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteRepository(
+        str(tmp_path / "lad.db"),
+    )
+
+    repository.execute(
+        """
+        CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL
+        )
+        """
+    )
+
+    repository.shutdown()
+
+    repository.execute(
+        "INSERT INTO tasks (title) VALUES (?)",
+        ("After shutdown",),
+    )
+
+    row = repository.fetch_one(
+        "SELECT title FROM tasks WHERE title = ?",
+        ("After shutdown",),
+    )
+
+    assert row is not None
+    assert row["title"] == "After shutdown"
+
+    repository.shutdown()
