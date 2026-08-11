@@ -102,3 +102,82 @@ def test_module_registry_does_not_stop_module_twice() -> None:
     registry.stop_all()
 
     assert module.stopped == 1
+
+
+class FailingModule:
+    name = "failing"
+
+    def __init__(self) -> None:
+        self.started = False
+        self.start_calls = 0
+        self.stop_calls = 0
+
+    def start(self) -> None:
+        self.start_calls += 1
+        raise RuntimeError("module startup failed")
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self.started = False
+
+
+class TrackingModule:
+    name = "tracking"
+
+    def __init__(self) -> None:
+        self.started = False
+        self.start_calls = 0
+        self.stop_calls = 0
+
+    def start(self) -> None:
+        self.start_calls += 1
+        self.started = True
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self.started = False
+
+
+def test_start_all_rolls_back_started_modules_on_failure() -> None:
+    registry = ModuleRegistry()
+
+    first = TrackingModule()
+    failing = FailingModule()
+
+    registry.register(first)
+    registry.register(failing)
+
+    try:
+        registry.start_all()
+        assert False, "Expected startup failure"
+    except RuntimeError as exc:
+        assert str(exc) == "module startup failed"
+
+    assert first.started is False
+    assert first.start_calls == 1
+    assert first.stop_calls == 1
+
+    assert failing.start_calls == 1
+    assert failing.stop_calls == 0
+
+
+def test_failed_start_does_not_leave_modules_marked_started() -> None:
+    registry = ModuleRegistry()
+
+    first = TrackingModule()
+    failing = FailingModule()
+
+    registry.register(first, name="first")
+    registry.register(failing)
+
+    try:
+        registry.start_all()
+    except RuntimeError:
+        pass
+
+    assert registry.start("first") is True
+    assert first.start_calls == 2
+
+    registry.stop("first")
+
+    assert first.stop_calls == 2

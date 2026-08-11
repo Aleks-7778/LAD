@@ -53,10 +53,25 @@ class ModuleRegistry:
         return tuple(self._modules.keys())
 
     def start_all(self) -> None:
-        """Запустить все модули один раз."""
+        """Запустить все модули транзакционно.
 
-        for name in self._modules:
-            self.start(name)
+        Если запуск одного из модулей завершается исключением,
+        все модули, успешно запущенные в рамках этой операции,
+        останавливаются в обратном порядке.
+        """
+
+        started_in_transaction: list[str] = []
+
+        try:
+            for name in self._modules:
+                if self.start(name):
+                    started_in_transaction.append(name)
+        except Exception:
+            for name in reversed(started_in_transaction):
+                self.stop(name)
+                self._started.discard(name)
+
+            raise
 
     def stop_all(self) -> None:
         """Остановить все запущенные модули один раз."""
