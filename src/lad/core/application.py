@@ -15,6 +15,7 @@ from lad.events.application import (
 from lad.events.bus import EventBus
 from lad.logging.service import LoggingService
 from lad.modules.registry import ModuleRegistry
+from lad.storage.schema import DatabaseSchema
 from lad.storage.sqlite import SQLiteRepository
 
 
@@ -29,6 +30,7 @@ class Application:
         configuration_service: ConfigurationService | None = None,
         logging_service: LoggingService | None = None,
         sqlite_repository: SQLiteRepository | None = None,
+        database_schema: DatabaseSchema | None = None,
     ) -> None:
         self._initialized = False
         self._running = False
@@ -45,6 +47,7 @@ class Application:
 
         self._logging_service = logging_service
         self._sqlite_repository = sqlite_repository
+        self._database_schema = database_schema
         self._settings: Settings | None = None
 
         # Core services available immediately.
@@ -133,6 +136,17 @@ class Application:
         return self._sqlite_repository
 
     @property
+    def database_schema(self) -> DatabaseSchema:
+        """Возвращает схему базы данных приложения."""
+
+        if self._database_schema is None:
+            raise RuntimeError(
+                "DatabaseSchema is not initialized"
+            )
+
+        return self._database_schema
+
+    @property
     def context(self) -> RuntimeContext:
         """Return the initialized runtime context."""
 
@@ -183,6 +197,11 @@ class Application:
                 self._settings.database_path,
             )
 
+        if self._database_schema is None:
+            self._database_schema = DatabaseSchema(
+                self._sqlite_repository,
+            )
+
         self._service_container.register(
             Settings,
             self._settings,
@@ -194,6 +213,10 @@ class Application:
         self._service_container.register(
             SQLiteRepository,
             self._sqlite_repository,
+        )
+        self._service_container.register(
+            DatabaseSchema,
+            self._database_schema,
         )
 
         self._initialized = True
@@ -215,6 +238,7 @@ class Application:
             )
 
         self._sqlite_repository.connect()
+        self.database_schema.initialize()
         self._module_registry.start_all()
 
         self._running = True
