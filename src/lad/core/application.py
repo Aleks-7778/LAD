@@ -181,6 +181,7 @@ class Application:
             module_registry=self._module_registry,
             logging_service=self.logging_service,
             sqlite_repository=self._sqlite_repository,
+            task_repository=self.task_repository,
         )
 
     @property

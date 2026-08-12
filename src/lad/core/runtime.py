@@ -10,6 +10,7 @@ from lad.events.bus import EventBus
 from lad.logging.service import LoggingService
 from lad.modules.registry import ModuleRegistry
 from lad.storage.sqlite import SQLiteRepository
+from lad.storage.tasks import TaskRepository
 from lad.config.settings import Settings
 
 
@@ -17,6 +18,7 @@ from lad.config.settings import Settings
 class RuntimeContext(ApplicationContext):
     """Unified runtime dependencies of the LAD application."""
 
+    task_repository: TaskRepository
     @property
     def services(self) -> ServiceContainer:
         """Alias for the application service container."""
